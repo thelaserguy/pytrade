@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Stock Analysis</title>
+  </head>
+  <body>
+  
+  <h1>Add to the List</h1>
+  <form method="POST" action="/">
+    <label for="ticker">Enter a stock ticker symbol:</label>
+    <input type="text" name="ticker" id="ticker">
+    <input type="submit" value="Submit">
+</form>
+<hr>
+    <h1>Most Active Stocks Today</h1>
+    <table>
+      <tr>
+        <th>Symbol</th>
+        <th>Name</th>
+        <th>Price (Intraday)</th>
+        <th>Change</th>
+        <th>Decision</th>
+      </tr>
+      {% for stock in stocks %}
+      <tr>
+        <td>{{ stock['Symbol'] }}</td>
+        <td>{{ stock['Name'] }}</td>
+        <td>{{ stock['Price (Intraday)'] }}</td>
+        <td>{{ stock['Change'] }}</td>
+        <td>{{ stock['Decision'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+	
+<hr>
+<img src="{{ url_for('scatter_plot_png') }}" alt="Plot">
+<hr>
+
+<h1>Stock Analysis Report</h1>
+	<table border="1">
+		<tr>
+			<th>Open</th>
+			<th>High</th>
+			<th>Low</th>
+			<th>Close</th>
+			<th>Volume</th>
+		</tr>
+		{% for index, row in stocks.iterrows() %}
+		<tr>
+			<td>{{ row['Open'] }}</td>
+			<td>{{ row['High'] }}</td>
+			<td>{{ row['Low'] }}</td>
+			<td>{{ row['Close'] }}</td>
+			<td>{{ row['Volume'] }}</td>
+		</tr>
+		{% endfor %}
+	</table>
+	<p>Predicted Closing Price: {{ predicted_price }}</p>
+	<p>Outlook: {{ outlook }}</p>
+	<p>R-squared: {{ r_squared }}</p>
+	<p>Mean squared error: {{ mean_squared_error }}</p>
+  </body>
+</html>
