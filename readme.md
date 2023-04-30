@@ -22,4 +22,5 @@
  - [ ] Include crypto currency
  - [ ] Include an area for user input of symbols
  - [ ] Use machine learning to make better predictions
-
+---
+##### I'll figure this out... Sooner or later.
