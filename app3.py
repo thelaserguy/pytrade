@@ -14,71 +14,48 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 import yfinance as yf
 import threading
-import tkinter as tk
+from datetime import timedelta
 
 app = Flask(__name__)
-app.secret_key = 'secret_key'
 
-def update_gui():
-    # Generate the Flask URL for the home route
-    flask_url = request.host_url
+stocks = pd.DataFrame(columns=['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook'])
     
-    # Update the GUI label with the Flask URL
-    url_label.config(text=flask_url)
+def scrape_data():
+    global stocks
     
-    # Schedule the next GUI update in 100ms
-    app_gui.after(100, update_gui)
+    # retrieve a list of most active stocks
+    most_active = yf.Tickers('mostactive')
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+    # filter stocks based on volume traded
+    top_stocks = most_active.tickers[most_active.tickers['volume'] > most_active.tickers['volume'].mean()]
 
-def start_flask():
-    # Create the tkinter window
-    app_gui = tk.Tk()
-    # Add the new function as a route
-    app.add_url_rule('/', 'home', home)
-    # Start the Flask server in a separate thread
-    flask_thread = threading.Thread(target=app.run)
-    flask_thread.start()
-    # Start the Tkinter main loop
-    app_gui.mainloop()
+    # select the top 10 stocks with highest volume traded
+    top_stocks = top_stocks.nlargest(10, 'volume')
 
-def scrape_data(symbol, stocks):
-    start = datetime(2010, 1, 1)
-    end = datetime.now()
-    try:
-        stock_data = get_stock_data(symbol, '1d', start.strftime('%s'), end.strftime('%s'))
-        if stock_data.empty:
-            return pd.DataFrame()
-        else:
-            return stock_data
-    except Exception as e:
-        print("Error occurred while retrieving data: ", e)
-    try:
-        stock = yf.Ticker(symbol)
-        stock_data = stock.history(period='365d')
-        if stock_data.empty:
-            return pd.DataFrame()
-        else:
-            return stock_data
-    except Exception as e:
-        print("Error occurred while retrieving data: ", e)
-    # Initialize the stocks variable as an empty DataFrame
-    if stocks is None:
-        stocks = pd.DataFrame()   
-    # Append the stock_data to the stocks DataFrame
-    stocks = stocks.append(stock_data[['Symbol', 'Name', 'Price', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook']])
-    try:
-        stocks = pd.DataFrame(stocks, columns=['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook'])
-    except TypeError as e:
-        print("Error occurred while creating the dataframe: ", e)
-        stocks = None
+    # retrieve data for each top stock
+    for symbol in top_stocks.index:
+        try:
+            stock = yf.Ticker(symbol)
+            stock_data = stock.history(period='365d')
+            if not stock_data.empty:
+                stock_data = stock_data[['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap']]
+                stocks = stocks.append(stock_data)
+        except Exception as e:
+            print("Error occurred while retrieving data from yfinance API: ", e)
+
+    return stocks
+
+
+if stocks.empty:
+    stocks = pd.DataFrame(columns=['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook'])
+
+print(stocks)
+
+
+
 
 def get_stock_outlook(stock, start, end):
     try:
-        stocks = pd.DataFrame(columns=['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook'])
-        
         stock_data = yf.Ticker(stock).info
         stock_data = pd.DataFrame(stock_data.items())
         stock_data.columns = ['Variable', 'Value']
@@ -108,32 +85,14 @@ def get_stock_outlook(stock, start, end):
         stock_data['mse'] = np.mean((model.predict(x) - y)**2)
             
         if stock_data.empty:
-            print("Error: No data found for selected dates. Please try again with different dates.")
-            return None
+            raise ValueError("Error: No data found for selected dates. Please try again with different dates.")
         else:
             return stock_data
-    except Exception as e:
-        print("Error occurred while retrieving data: ", e)
         
-    try:
-        stocks = stocks.append(stock_data[['Symbol', 'Name', 'Price', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse']])
-    except TypeError as e:
-        print("Error occurred while appending data to the dataframe: ", e)
-        stocks = None
-    
-    try:
-        yf.pdr_override()
-        df = web.get_data_yahoo(stock, start=start, end=end)
-        return df
-    except:
-        print("Error retrieving data from Yahoo Finance API")
-
-    try:
-        yf.pdr_override()
-        df = web.get_data_yahoo(stock, start=start, end=end)
-        return df
-    except:
-        print("Error retrieving data from Alpha Vantage API")
+    except Exception as e:
+        raise ValueError(f"Error occurred while retrieving data: {e}")
+        
+    return None
 
 def get_stock_data(symbols, interval, period):
     dfs = []
@@ -158,9 +117,8 @@ def get_stock_data(symbols, interval, period):
             dfs.append(pd.DataFrame(data, index=data['timestamp']))
     return pd.concat(dfs)
 
-if __name__ == '__main__':
-    start_flask()
 
+	
 def analyze_data(df):
     stocks = None
     predictions = None
@@ -214,8 +172,7 @@ def analyze_data(df):
         plt.title('Actual vs. Predicted Closing Prices')
         plt.savefig(filename)
         plt.close()
-        return filename
-        
+
 
         # Display the summary statistics of the linear regression model
         X = sm.add_constant(X)
@@ -239,8 +196,11 @@ def analyze_data(df):
             else:
                 outlook = 'Neutral'
 
-        # Select the relevant columns to display in the HTML table
-        stocks = df[['Open', 'High', 'Low', 'Close', 'Volume']].tail().round(2)
+    # Select the relevant columns to display in the HTML table
+    stocks = df[['Open', 'High', 'Low', 'Close', 'Volume']].tail().round(2)
+
+    return stocks, predictions, outlook, r2, mse
+
     try:
         if 'Symbol' in df:
             symbol = df['Symbol'][0]
@@ -261,34 +221,62 @@ def analyze_data(df):
         print(f"Error occurred: {str(e)}")
         return None, None, None, None, None
 
+def main():
+    stocks = pd.DataFrame()
+    stocks = scrape_data(stocks)
+    print(stocks)
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Retrieve most-active stocks from Yahoo Finance
-    url = 'https://finance.yahoo.com/most-active/'
-    header = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
-    html = requests.get(url, headers=header).text
-    soup = BeautifulSoup(html, 'html.parser')
-    table = soup.find('table')
-    df = pd.read_html(str(table))[0]
-    df['Price (Intraday)'] = df['Price (Intraday)'].apply(lambda x: str(x).replace(',', '')).astype(float)
-    df['Change'] = df['Change'].apply(lambda x: str(x).replace('%', '')).astype(float)
+    global stocks
 
-    # Analyze data for each stock
-    stocks = []
-    for symbol in df['Symbol']:
-        stock_data = scrape_data(symbol, stocks)
-        if not stock_data.empty:
-            analyzed_data = analyze_data(stock_data)
-            outlook = "Bullish" if analyzed_data['MA50'] > analyzed_data['MA200'] else "Bearish"
-            stocks.append([symbol, df[df['Symbol'] == symbol]['Name'].values[0], df[df['Symbol'] == symbol]['Price (Intraday)'].values[0], df[df['Symbol'] == symbol]['Change'].values[0], df[df['Symbol'] == symbol]['% Change'].values[0], df[df['Symbol'] == symbol]['Volume'].values[0], df[df['Symbol'] == symbol]['Avg Vol (3 month)'].values[0], df[df['Symbol'] == symbol]['Market Cap'].values[0], analyzed_data['r2'], analyzed_data['mse'], outlook])
+    if request.method == 'POST':
+        # get form input data
+        symbol = request.form['symbol'].upper()
 
-    # Convert the stocks list to a dataframe
-    stocks = pd.DataFrame(stocks, columns=['Symbol', 'Name', 'Price (Intraday)', 'Change', '% Change', 'Volume', 'Avg Vol (3 month)', 'Market Cap', 'r2', 'mse', 'Outlook'])
-    
-    return render_template('index.html', stocks=stocks.to_dict('records'))
+        # scrape stock data from Yahoo Finance API
+        stock_data = scrape_data()
+
+        # get data for the selected stock
+        stock_data = stock_data[stock_data['Symbol'] == symbol]
+
+        if stock_data.empty:
+            # if no data is found for the selected stock, display an error message
+            return render_template('index.html', error=True)
+        else:
+            # perform linear regression analysis
+            X = np.array(range(len(stock_data)))
+            X = X.reshape(-1, 1)
+            y = np.array(stock_data['Price (Intraday)'])
+            model = LinearRegression()
+            model.fit(X, y)
+            y_pred = model.predict(X)
+            r2 = r2_score(y, y_pred)
+            mse = mean_squared_error(y, y_pred)
+
+            # get stock outlook
+            start_date = (datetime.today() - timedelta(days=7)).strftime('%Y-%m-%d')
+            end_date = datetime.today().strftime('%Y-%m-%d')
+            outlook = get_stock_outlook(symbol, start_date, end_date)
+
+            # update stock data with regression analysis results and outlook
+            stock_data['r2'] = r2
+            stock_data['mse'] = mse
+            stock_data['Outlook'] = outlook
+
+            return render_template('index.html', stocks=stock_data.to_dict('records'))
+
+    else:
+        # if the request method is GET, display the homepage
+        return render_template('index.html')
 
 if __name__ == 'main':
     app.run(debug=True)
+
+if __name__ == '__main__':
+    app.run()
+
+if __name__ == '__main__':
+    main()
     
-url = url_for('index', _external=True)
-print(url)
+    
