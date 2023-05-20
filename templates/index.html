@@ -1,64 +1,47 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Stock Analysis</title>
-  </head>
-  <body>
-  
-  <h1>Add to the List</h1>
-  <form method="POST" action="/">
-    <label for="ticker">Enter a stock ticker symbol:</label>
-    <input type="text" name="ticker" id="ticker">
-    <input type="submit" value="Submit">
-</form>
-<hr>
-    <h1>Most Active Stocks Today</h1>
+<head>
+  <title>Stock Analysis</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <h1>Stock Analysis</h1>
+  <form action="/" method="post">
+    <label for="symbol">Enter Stock Symbol:</label>
+    <input type="text" id="symbol" name="symbol" required>
+    <button type="submit">Analyze</button>
+  </form>
+
+  {% if error %}
+    <p class="error-message">No data found for the selected stock. Please try again with a valid symbol.</p>
+  {% endif %}
+
+  {% if stocks %}
+    <h2>Stock Data</h2>
     <table>
       <tr>
-        <th>Symbol</th>
-        <th>Name</th>
-        <th>Price (Intraday)</th>
-        <th>Change</th>
-        <th>Decision</th>
+        <th>Date</th>
+        <th>Close</th>
+        <th>Volume</th>
       </tr>
       {% for stock in stocks %}
-      <tr>
-        <td>{{ stock['Symbol'] }}</td>
-        <td>{{ stock['Name'] }}</td>
-        <td>{{ stock['Price (Intraday)'] }}</td>
-        <td>{{ stock['Change'] }}</td>
-        <td>{{ stock['Decision'] }}</td>
-      </tr>
+        <tr>
+          <td>{{ stock.Date }}</td>
+          <td>{{ stock.Close }}</td>
+          <td>{{ stock.Volume }}</td>
+        </tr>
       {% endfor %}
     </table>
-	
-<hr>
-<img src="{{ url_for('scatter_plot_png') }}" alt="Plot">
-<hr>
 
-<h1>Stock Analysis Report</h1>
-	<table border="1">
-		<tr>
-			<th>Open</th>
-			<th>High</th>
-			<th>Low</th>
-			<th>Close</th>
-			<th>Volume</th>
-		</tr>
-		{% for index, row in stocks.iterrows() %}
-		<tr>
-			<td>{{ row['Open'] }}</td>
-			<td>{{ row['High'] }}</td>
-			<td>{{ row['Low'] }}</td>
-			<td>{{ row['Close'] }}</td>
-			<td>{{ row['Volume'] }}</td>
-		</tr>
-		{% endfor %}
-	</table>
-	<p>Predicted Closing Price: {{ predicted_price }}</p>
-	<p>Outlook: {{ outlook }}</p>
-	<p>R-squared: {{ r_squared }}</p>
-	<p>Mean squared error: {{ mean_squared_error }}</p>
-  </body>
+    <h2>Predictions</h2>
+    {% if predictions %}
+      <p>R-squared: {{ r2 }}</p>
+      <p>Mean Squared Error: {{ mse }}</p>
+      <p>Outlook: {{ outlook }}</p>
+      <img src="{{ url_for('static', filename='scatter_plot.png') }}" alt="Scatter Plot">
+    {% else %}
+      <p>No predictions available for the selected stock.</p>
+    {% endif %}
+  {% endif %}
+</body>
 </html>
