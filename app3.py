@@ -1,3 +1,4 @@
+import requests
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -13,28 +14,27 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 app = Flask(__name__)
 
-def scrape_data():
-    # Retrieve a list of most active stocks
-    most_active = web.get_quote_yahoo('mostactive')
+def scrape_data(stocks):
+    try:
+        # Retrieve a list of most active stocks
+        top_stocks = web.get_top_stock_holders('mostactive')
 
-    # Filter stocks based on volume traded
-    top_stocks = most_active[most_active['volume'] > most_active['volume'].mean()]
+        # Select the top 10 stocks with the highest volume traded
+        top_stocks = top_stocks.nlargest(10, 'volume')
 
-    # Select the top 10 stocks with the highest volume traded
-    top_stocks = top_stocks.nlargest(10, 'volume')
-
-    # Retrieve data for each top stock
-    stocks = pd.DataFrame()
-    for symbol in top_stocks.index:
-        try:
+        # Retrieve data for each top stock
+        stocks = pd.DataFrame()
+        for symbol in top_stocks.index:
             stock_data = web.get_data_yahoo(symbol)
-            if not stock_data.empty:
-                stock_data = stock_data[['Symbol', 'Name', 'Close', 'Volume']]
-                stocks = stocks.append(stock_data)
-        except Exception as e:
-            print("Error occurred while retrieving data: ", e)
+            stock_data = stock_data[['Date', 'Close', 'Volume']]
+            stocks = stocks.append(stock_data)
 
-    return stocks
+        return stocks
+
+    except Exception as e:
+        print("Error occurred while retrieving stock data:", e)
+        return pd.DataFrame()  # Return an empty DataFrame in case of an error
+
 
 def analyze_data(df):
     stocks = None
@@ -99,9 +99,11 @@ def analyze_data(df):
 
     return stocks, predictions, outlook, r2, mse
 
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
+        # Retrieve the form input data
         symbol = request.form['symbol'].upper()
         start_date = (datetime.today() - timedelta(days=7)).strftime('%Y-%m-%d')
         end_date = datetime.today().strftime('%Y-%m-%d')
@@ -123,7 +125,12 @@ def index():
         except Exception as e:
             return render_template('index.html', error=str(e))
 
-    return render_template('index.html')
+    else:
+        # Retrieve the most popular stocks data
+        stocks = scrape_data(pd.DataFrame())
+
+        return render_template('index.html', stocks=stocks.to_dict('records'))
+
 
 if __name__ == '__main__':
     app.run(debug=True)
