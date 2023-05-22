@@ -7,11 +7,13 @@
 
 
 #### Things ~~I'd like~~  I NEED to do ASAP:
- - [ ] Aggregate historical & current stock data 
- - [ ] Analyze the data using traditional & statistical algorithms 
+ - [x] Aggregate historical ~~& current stock data~~
+ - [ ] Analyze current stock data
+ - [x] Analyze the data using traditional & statistical algorithms 
  - [ ] Graph & plot the actual vs predicted closing prices & other such data
  - [ ] Offer a risk assessment based on above data
  - [ ] Package all of the above & display it using Flask
+ - [ ] Use machine learning to make better predictions
 ---
 ### Maybe one day; just not today.
 ##### Gotta walk before you run, ammirite? 
@@ -20,7 +22,7 @@
  - [ ] Calculate & factor other variables, such as sentiment & expectations
  - [ ] Work outside of the browser
  - [ ] Include crypto currency
- - [ ] Include an area for user input of symbols
- - [ ] Use machine learning to make better predictions
+ - [x] Include an area for user input of symbols
+ - [ ] ~~Use machine learning to make better predictions~~
 ---
 ##### I'll figure this out... Sooner or later.
