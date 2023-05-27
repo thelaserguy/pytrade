@@ -4,14 +4,14 @@ import numpy as np
 
 def generate_synthetic_data():
     num_features = 6  
-    num_historical_days = 50
+    num_historical_days = 3 * 252
     generator_input_size = 300
 
     generator = load_model('models/gan_generator')
     discriminator = load_model('models/gan_discriminator')
 
-    # Assuming the input shape of your generator takes a vector of size 100
-    noise_dim = 100  
+    # Adjust the input shape of your generator, it should be 300, not 100
+    noise_dim = generator_input_size  
 
     # Number of synthetic data samples you want to generate
     num_samples = 1000  
@@ -21,6 +21,10 @@ def generate_synthetic_data():
 
     # Now you can use this noise array to generate synthetic data
     synthetic_data = generator.predict(noise)
+    
+    # Save the synthetic data to a .npy file
+    np.save('synthetic_data.npy', synthetic_data)
+    
     print(synthetic_data)
 
 if __name__ == "__main__":

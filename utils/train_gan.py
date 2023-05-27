@@ -9,7 +9,7 @@ def preprocess_data(df):
 
 def train_gan(csv_files):
     num_features = 6
-    num_historical_days = 50
+    num_historical_days = 5 * 252
     generator_input_size = 300
     epochs = 100
 

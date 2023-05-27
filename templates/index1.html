@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Most Active Stocks</title>
+  </head>
+  <body>
+    <h1>Most Active Stocks</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th>Price</th>
+          <th>Change</th>
+          <th>Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for index, row in stocks.iterrows() %}
+          <tr>
+            <td>{{ row['Symbol'] }}</td>
+            <td>{{ row['Name'] }}</td>
+            <td>{{ row['Price (Intraday)'] }}</td>
+            <td>{{ row['Change'] }}</td>
+            <td>{{ row['Decision'] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

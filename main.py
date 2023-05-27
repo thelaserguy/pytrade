@@ -1,89 +1,80 @@
 from flask import Flask, render_template, request
 import os
 import pandas as pd
-import xgboost as xgb
 import joblib
-from gan import GAN
+from tensorflow.keras.models import load_model
 import tensorflow as tf
 import quandl
-
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 
 app = Flask(__name__)
-
 quandl.ApiConfig.api_key = 'N-9udvz63Yt73U64Q7QG'
+num_historical_days = 20  # Used for LSTM prediction
+gan_noise_dim = 300  # Noise dimension for GAN
 
 def scrape_data():
-    try:
-        data_folder = os.path.join(os.getcwd(), 'data')
-        files = [f for f in os.listdir(data_folder) if f.endswith('.csv')]
+    # Function to scrape data
+    pass
 
-        stocks = pd.DataFrame()
-        for file in files:
-            symbol = os.path.splitext(file)[0]
-            file_path = os.path.join(data_folder, file)
-            df = pd.read_csv(file_path)
-            df['Symbol'] = symbol
-            stocks = stocks.append(df)
+def preprocess_data(df, symbol):
+    df.fillna(method='ffill', inplace=True)
+    features = ['Open', 'High', 'Low', 'Close', 'Volume']
+    df = df[features]
+    scaler_path = f'scalers/scaler_{symbol}.pkl'
+    scaler = joblib.load(scaler_path)
+    scaled_data = scaler.transform(df)
+    sequence_length = 50 
+    seq_data = to_sequences(scaled_data, sequence_length)
+    return seq_data
 
-        return stocks
+def to_sequences(data, seq_length):
+    d = []
+    for index in range(len(data) - seq_length):
+        d.append(data[index: index + seq_length])
+    return np.array(d, dtype=np.float32)  
 
-    except Exception as e:
-        print("Error occurred while retrieving stock data:", e)
-        return pd.DataFrame()
+def predict_with_lstm(lstm_model, data):
+    lstm_data = data.values.reshape((-1, num_historical_days, 1))
+    lstm_predictions = lstm_model.predict(lstm_data)
+    return lstm_predictions
 
-def analyze_data(df):
-    # Perform your analysis using XGBoost and GAN models
-    num_historical_days = 20
-    xgb_model_path = './models/clf.pkl'
-    gan_model_path = './models/gan.ckpt'
+def generate_synthetic_data(gan_model, num_samples=1000):
+    noise = tf.random.normal([num_samples, gan_noise_dim])
+    synthetic_data = gan_model(noise, training=False)
+    return synthetic_data
 
-    # Load XGBoost model
-    xgb_model = joblib.load(xgb_model_path)
-
-    # Load GAN model
-    gan = GAN(num_historical_days=num_historical_days, is_train=False)
-    gan_input_size = 200
-    gan_features = gan.generator(gan_input_size)
-
-    # Process the data for prediction
-    processed_data = preprocess_data(df)
-
-    # Generate XGBoost predictions
-    xgb_data = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
-    xgb_predictions = xgb_model.predict(xgb.DMatrix(xgb_data))
-
-    # Generate GAN predictions
-    gan_data = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']].values
-    gan_predictions = []
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
-        saver.restore(sess, gan_model_path)
-        for i in range(num_historical_days, len(gan_data), num_historical_days):
-            features = sess.run(gan_features, feed_dict={gan.X: [gan_data[i - num_historical_days:i]]})
-            gan_predictions.append(features[0])
-
-    # Return the predictions
-    return xgb_predictions, gan_predictions
-
-@app.route('data/historical_data/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def index():
-    if request.method == 'POST':
-        symbol = request.form['symbol'].upper()
+    stocks = scrape_data()
+    top_picks = []
+    for symbol in stocks['Symbol'].unique():
+        df = stocks[stocks['Symbol'] == symbol]
+        lstm_model_path = f'models/lstm_model_{symbol}.h5'
+        lstm_model = load_model(lstm_model_path)
+        lstm_predictions = predict_with_lstm(lstm_model, df)
+        top_picks.append((symbol, lstm_predictions[-1]))  
 
-        try:
-            df = scrape_data()
-            df = df[df['Symbol'] == symbol]
-            if df.empty:
-                return render_template('error.html', error='No data available for the specified symbol.')
+    top_picks = sorted(top_picks, key=lambda x: x[1], reverse=True)[:10]
+    return render_template('index.html', top_picks=top_picks)
 
-            xgb_predictions, gan_predictions = analyze_data(df)
+@app.route('/predict', methods=['POST'])
+def predict():
+    symbol = request.form['symbol'].upper()
+    if not symbol or not symbol.isalpha():
+        return render_template('error.html', error='Invalid symbol.')
+    try:
+        stocks = scrape_data()
+        df = stocks[stocks['Symbol'] == symbol]
+        if df.empty:
+            return render_template('error.html', error='No data available for the specified symbol.')
+        lstm_model_path = f'models/lstm_model_{symbol}.h5'
+        lstm_model = load_model(lstm_model_path)
+        lstm_predictions = predict_with_lstm(lstm_model, df)
+        return render_template('index.html', symbol=symbol, lstm_predictions=lstm_predictions)
+    except Exception as e:
+        return render_template('error.html', error=str(e))
 
-            # Render the predictions and other information in the HTML template
-            return render_template('index.html', symbol=symbol, xgb_predictions=xgb_predictions,
-                                   gan_predictions=gan_predictions)
-        except Exception as e:
-            return render_template('error.html', error=str(e))
-    else:
-        return render_template('index.html')
-
+if __name__ == '__main__':
+    app.run(debug=True)

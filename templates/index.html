@@ -1,0 +1,38 @@
+{% if xgb_predictions and gan_predictions and lstm_predictions %}
+<h2>Predictions for {{ symbol }}</h2>
+<h3>XGBoost Predictions</h3>
+<ul>
+  {% for prediction in xgb_predictions %}
+    <li>{{ prediction }}</li>
+  {% endfor %}
+</ul>
+<h3>GAN Predictions</h3>
+<ul>
+  {% for prediction in gan_predictions %}
+    <li>{{ prediction }}</li>
+  {% endfor %}
+</ul>
+<h3>LSTM Predictions</h3>
+<ul>
+  {% for prediction in lstm_predictions %}
+    <li>{{ prediction }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No predictions available.</p>
+{% endif %}
+
+{% if xgb_predictions %}
+<h1>XGBoost Predictions:</h1>
+<ul>
+    {% for prediction in xgb_predictions %}
+    <li>{{ prediction }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<!-- Debug Information -->
+<p>Symbol: {{ symbol }}</p>
+<p>XGBoost Predictions: {{ xgb_predictions }}</p>
+<p>GAN Predictions: {{ gan_predictions }}</p>
+<p>LSTM Predictions: {{ lstm_predictions }}</p>

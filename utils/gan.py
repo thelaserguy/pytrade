@@ -3,6 +3,8 @@ from tensorflow import keras
 from tensorflow.keras import layers, models
 import numpy as np
 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 SEED = 42
 np.random.seed(SEED)
 tf.random.set_seed(SEED)
@@ -16,7 +18,7 @@ class GAN(keras.Model):
         
         # Create the combined model here
         self.combined = keras.Model(self.generator.input, self.discriminator(self.generator.output))
-        self.combined.compile(optimizer='adam', loss='mse')
+        self.combined.compile(optimizer='adam', loss='binary_crossentropy')
         
     def load_model(self, generator_path, discriminator_path):
         self.generator = keras.models.load_model(generator_path)
@@ -28,6 +30,9 @@ class GAN(keras.Model):
         model.add(layers.BatchNormalization())
         model.add(layers.LeakyReLU())
 
+        model.add(layers.Dense(num_historical_days * num_features))
+        model.add(layers.BatchNormalization())
+        model.add(layers.LeakyReLU())
         model.add(layers.Reshape((num_historical_days, num_features)))
         assert model.output_shape == (None, num_historical_days, num_features)
         
@@ -36,7 +41,14 @@ class GAN(keras.Model):
     def make_discriminator_model(self, num_features, num_historical_days):
         model = tf.keras.Sequential()
         model.add(layers.Flatten())
-        model.add(layers.Dense(1))
+        model.add(layers.Dense(512))
+        model.add(layers.LeakyReLU())
+        model.add(layers.Dropout(0.3))
+
+        model.add(layers.Dense(256))
+        model.add(layers.LeakyReLU())
+        model.add(layers.Dropout(0.3))
+        model.add(layers.Dense(1, activation='sigmoid'))
         
         return model
 
@@ -76,4 +88,3 @@ class GAN(keras.Model):
     def save_model(self, file_path):
         self.generator.save_weights(f'{file_path}_generator.h5')
         self.discriminator.save_weights(f'{file_path}_discriminator.h5')
-
